@@ -32,10 +32,7 @@ void GE_SentDataToPC( void )
         sprintf(buffer, "%02X ", (unsigned)*((uint8_t *)(g_ashRawTemp)+i));
         for (int n = 0; n < 3; ++n)
         {
-          //GE_SoftUartPutChar((char)buffer[n]);
-         //GE_SoftUartPutChar('9');
         }
-        //GE_SoftUartPutChar((char)(*((uint8_t *)(g_ashRawTemp)+i)));
 
     GE_SoftUartPutChar( '\r');
     GE_SoftUartPutChar( '\n');
@@ -53,12 +50,35 @@ void GE_SentDataToPC( void )
   Others：None
 ******************************************************************************/
 
+int numOfPointsOverThreshold = 0;
+
+bool getLightStatus()
+{
+      numOfPointsOverThreshold = 0;
+
+      for( int i = 0; i < 64; i++ )
+      {
+          float temp = (float)(g_ashRawTemp[i]) * 0.25;
+
+          char c = ' ';
+
+          if (temp > 25.0)
+          {
+            numOfPointsOverThreshold++;
+          }
+
+          if (numOfPointsOverThreshold > 24)
+          {
+            return HIGH;
+          }
+       }
+       return LOW;
+}
+
 void GE_SentDataToPhone( void )
 {
+      numOfPointsOverThreshold = 0;
       Serial.println("-----------------");
-//      Serial.write(aucThsBuf[0]);
-//      Serial.write(aucThsBuf[1]);
-      //for( int i = 0; i < 128; i++ )
       for( int i = 0; i < 64; i++ )
       {
           //Serial.write(*((uint8_t *)(g_ashRawTemp)+i));
@@ -146,7 +166,7 @@ void setup()
     delay(1000);
 
     /* start serial port at 57600 bps:*/
-    Serial.begin(57600);
+    //Serial.begin(57600);
   
     /* Initialize Grid-Eye data interface */
     GE_GridEyeSensor.init( 0 );
@@ -156,6 +176,9 @@ void setup()
 
     /* Initialize software Software serial port UART1*/
     GE_SoftUartInit( );
+
+    pinMode(13, OUTPUT); 
+    pinMode(33, OUTPUT); 
 }
 
 void loop()
@@ -176,7 +199,14 @@ void loop()
      //GE_SentDataToPC( );
 
      /* Send Grid-Eye sensor data to phone */ 
-     GE_SentDataToPhone( );
+     //GE_SentDataToPhone( );
+
+     bool status = getLightStatus();
+
+     digitalWrite(13, status);  
+     digitalWrite(33, status);  
+     //Serial.println(status == LOW ? "LOW" : "HIGH");
+
 
      /* set update frequency */
      GE_UpdateFerquency(GE_UpdateFreGet());
