@@ -4,6 +4,11 @@
 #include <GE_SoftUart.h>
 #include <GE_SoftUartParse.h>
 
+
+const int LedPin = LED_BUILTIN;
+const int RelayPin = 33;  
+
+
 /*******************************************************************************
   variable value definition
 *******************************************************************************/
@@ -12,35 +17,9 @@ static uint16_t Main_Delay = 85;
        uint8_t  aucThsBuf[2];              /* thermistor temperature        */
        short    g_ashRawTemp[64];          /* temperature of 64 pixels      */
   
-/******************************************************************************
-  Function：GE_SentDatatoPC
-  Description：Used to Sent data to PC
-  Input：None
-  Output：None
-  Others：None
-******************************************************************************/
-char buffer[32];
-void GE_SentDataToPC( void )
-{
-    GE_SoftUartPutChar( '*');
-    GE_SoftUartPutChar( '-');
-    GE_SoftUartPutChar( '*');
- //   GE_SoftUartPutChar( aucThsBuf[0] );
- //   GE_SoftUartPutChar( aucThsBuf[1] );
-    for(int i = 0; i < 128; i++)
-    {
-        sprintf(buffer, "%02X ", (unsigned)*((uint8_t *)(g_ashRawTemp)+i));
-        for (int n = 0; n < 3; ++n)
-        {
-        }
 
-    GE_SoftUartPutChar( '\r');
-    GE_SoftUartPutChar( '\n');
-        
-    }
-    GE_SoftUartPutChar( '\r');
-    GE_SoftUartPutChar( '\n');
-}
+char buffer[32];
+
 
 /******************************************************************************
   Function：GE_SentDatatoPC
@@ -51,6 +30,8 @@ void GE_SentDataToPC( void )
 ******************************************************************************/
 
 int numOfPointsOverThreshold = 0;
+bool lastLightStatus = LOW;
+
 
 bool getLightStatus()
 {
@@ -67,7 +48,7 @@ bool getLightStatus()
             numOfPointsOverThreshold++;
           }
 
-          if (numOfPointsOverThreshold > 24)
+          if (numOfPointsOverThreshold > 12)
           {
             return HIGH;
           }
@@ -75,7 +56,13 @@ bool getLightStatus()
        return LOW;
 }
 
-void GE_SentDataToPhone( void )
+void setLight(bool status)
+{
+     digitalWrite(LedPin, status);  
+     digitalWrite(RelayPin, status);  
+}
+
+void SendDataToPC( void )
 {
       numOfPointsOverThreshold = 0;
       Serial.println("-----------------");
@@ -87,7 +74,7 @@ void GE_SentDataToPhone( void )
 
           char c = ' ';
 
-          if (temp > 25.0 && temp <= 30.0)
+          if (temp > 23.0 && temp <= 30.0)
           {
             c = '.';
           }
@@ -100,8 +87,6 @@ void GE_SentDataToPhone( void )
           Serial.print(buffer);
           
           //sprintf(buffer, "%.2f ", (float)(g_ashRawTemp[i]) * 0.25);
-          
-
           //sprintf(buffer, "%.2f ", (float)*((uint8_t *)(g_ashRawTemp)+i) * 0.25);
           //Serial.print(buffer);
           if ( (i+1) % 8 == 0)
@@ -110,7 +95,6 @@ void GE_SentDataToPhone( void )
           }
        }
        Serial.println("-----------------");
-      //Serial.print("\r\n");
 }
 
 /******************************************************************************
@@ -146,8 +130,7 @@ void GE_UpdateFerquency( uint8_t GE_SetFrequency )
         break;
       
         case 1:   /* set update frequency 1Hz */
-        {
-        
+        {       
             Main_Delay = 985;
         }
         break;
@@ -166,7 +149,7 @@ void setup()
     delay(1000);
 
     /* start serial port at 57600 bps:*/
-    //Serial.begin(57600);
+//    Serial.begin(57600);
   
     /* Initialize Grid-Eye data interface */
     GE_GridEyeSensor.init( 0 );
@@ -177,8 +160,10 @@ void setup()
     /* Initialize software Software serial port UART1*/
     GE_SoftUartInit( );
 
-    pinMode(13, OUTPUT); 
-    pinMode(33, OUTPUT); 
+    pinMode(LedPin, OUTPUT); 
+    pinMode(RelayPin, OUTPUT); 
+
+    setLight(LOW);
 }
 
 void loop()
@@ -196,17 +181,21 @@ void loop()
     }
 
      /* Send Grid-Eye sensor data to PC */   
-     //GE_SentDataToPC( );
-
-     /* Send Grid-Eye sensor data to phone */ 
-     //GE_SentDataToPhone( );
+//     SendDataToPC();
 
      bool status = getLightStatus();
 
-     digitalWrite(13, status);  
-     digitalWrite(33, status);  
-     //Serial.println(status == LOW ? "LOW" : "HIGH");
+     if (lastLightStatus != status)
+     {
+         setLight(status);
+         lastLightStatus = status;
 
+         unsigned long timeOutMs = (status==HIGH) ? 2500 : 1500;
+
+         delay(timeOutMs); // avoid relay flickering
+     }
+ 
+     //Serial.println(status == LOW ? "LOW" : "HIGH");
 
      /* set update frequency */
      GE_UpdateFerquency(GE_UpdateFreGet());
